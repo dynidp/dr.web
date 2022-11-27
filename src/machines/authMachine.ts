@@ -1,3 +1,4 @@
+import { AuthorizationRequest } from "@openid/appauth";
 import {Machine, assign, InterpreterFrom, actions} from "xstate";
 import {User, IdToken} from "../models";
 
@@ -22,11 +23,16 @@ export interface SocialPayload {
 
     [key: string]: any
 }
-
+export type OIDCPayload  = AuthorizationRequest
+export type OIDC_RR_Payload  = {registrationEndpoint:string}
 export type SocialEvent = SocialPayload & { type: "SOCIAL" };
+export type OIDCEvent = SocialPayload & { type: "OIDC" } & OIDCPayload ;
+export type OIDC_DR_Event =  { type: "OIDC.DR" } & OIDC_RR_Payload;
 export type AuthMachineEvents =
     | { type: "LOGIN" }
     | SocialEvent
+    | OIDC_DR_Event
+    | OIDCEvent
     | { type: "LOGOUT" }
     | { type: "UPDATE" }
     | { type: "REFRESH"  }
@@ -83,57 +89,27 @@ export const authMachine = Machine<AuthMachineContext, AuthMachineSchema, AuthMa
                 states: {
                     initial:{
                         on: {
-                            SUBMIT: "password",
-                            SOCIAL: "social",
-                            SIGNUP: "signup"
+                             OIDC: "oidc",
+                            'OIDC.DR': "oidc_dr"
                         }
                     },
-                    social: {
-                        entry: log('social'),
+                    oidc:{
+                        entry: log('oidc'),
                         invoke: {
-                            src: "performSocialLogin",
+                            src: "perform_oidc",
+                            onDone: {target: "authorized", actions: "onSuccess"},
+                            onError: {target: "initial", actions: ["onError", "logEventData"]},
+                        }, 
+                    },
+                    oidc_dr:{
+                        entry: log('oidc_dr'),
+                        invoke: {
+                            src: "perform_oidc_with_dr",
                             onDone: {target: "authorized", actions: "onSuccess"},
                             onError: {target: "initial", actions: ["onError", "logEventData"]},
                         },
                     },
-                    password: {
-                        invoke: {
-                            src: "performLogin",
-                            onDone: {target: "authorized", actions: "onSuccess"},
-                            onError: {target: "initial", actions: ["onError", "logEventData"]},
-                        }
-                    },
-                    signup: {
-                        entry: log('signup'),
-                        onDone: 'authorized', 
-                        on: { 
-                            LOGIN: "initial",
-                            SUBMIT: '.submit'
-                        },
-                        
-                        states:{
-                            submit:{
-                                invoke: {
-                                    src: "performSignup",
-                                    onDone: {target: "success", actions: "onSuccess"},
-                                    onError: {target: "error", actions: ["onError", "logEventData"]},
-                                },
-                            },
-                            success: {
-                                entry: [log("success"), "onRegisterSuccessEntry"],
-                                type: "final"
-
-                            },
-                            error: {
-                             
-                            
-
-                            }
-                        }
-                        
-                        
-                       
-                    },
+                   
 
                     authorized: {
                         entry: [log("authorized"), "onAuthorizedEntry"],

@@ -61,45 +61,21 @@ export default function SignIn({authService}: SignInProps) {
     // const [ state,sendAuth] = useActor(authService.state);
     // The normal Gigya account login process makes use of
     // the react-hook-form library
-    const handleLogin = async (data: any) => {
+
+    const handle_dynamic_oidc = async (data: any) => {
         const params = {
-            email: data.email,
-            password: data.password,
+            registrationEndpoint: data.registrationEndpoint,
         };
-        loginService.send({type: "SUBMIT", ...params})
-
-    };
-    const handleRegister = async () => {
-       
-        loginService.send({type: "SIGNUP"})
+        loginService.send({type: "OIDC.DR", ...params})
 
     };
 
-    const handleFacebookGigyaLogin = () => {
-        loginService.send({type: 'SOCIAL', provider: "facebook"});
+    const handle_oidc = () => {
+        loginService.send({type: 'SOCIAL',provider: "https://fidm.eu1.gigya.com/oidc/op/v1.0/4_IIUXxExoyzTQFvliBbnXsA" });
     };
-
-    const handleMicrosoftGigyaLogin = () => {
-        loginService.send({type: 'SOCIAL', provider: "microsoft"});
+    const handle_oidc_dr = () => {
+        loginService.send({type: 'OIDC.DR',registrationEndpoint: "https://fidm.eu1.gigya.com/oidc/op/v1.0/4_IIUXxExoyzTQFvliBbnXsA/register" });
     };
-    
-    const handleLinkedinGigyaLogin = () => {
-        loginService.send({type: 'SOCIAL', provider: "linkedin"});
-    };
-
-
-    const handleGoogleLogin = () => {
-        loginService.send({type: 'SOCIAL', provider: "google"});
-    };
-
-    const handleOConnectLogin = async () => {
-        loginService.send({type: 'SOCIAL', provider: "oidc-logindynidp"});
-    };
-
-    const handleOPublicConnectGigyaLogin = () => {
-        loginService.send({type: 'SOCIAL', provider: "oidc-logindynidpeu"});
-    };
-
     return (
         <Container component="main" maxWidth="xs">
             <CssBaseline/>
@@ -113,32 +89,21 @@ export default function SignIn({authService}: SignInProps) {
                     <form
                         className={classes.form}
                         noValidate
-                        onSubmit={handleSubmit(handleLogin)}
+                        onSubmit={handleSubmit(handle_dynamic_oidc)}
                     >
                         <TextField
                             variant="outlined"
                             margin="normal"
                             required
                             fullWidth
-                            id="email"
-                            label="Email Address"
-                            autoComplete="email"
+                            id="registrationEndpoint"
+                            label="Registration Endpoint"
+                            autoComplete="registrationEndpoint"
                             autoFocus
-                            {...register("email", {required: true})}
+                            {...register("registrationEndpoint", {required: true})}
                         />
-                        {errors && errors.email && <span>Please enter an Email address</span>}
-                        <TextField
-                            variant="outlined"
-                            margin="normal"
-                            required
-                            fullWidth
-                            label="Password"
-                            type="password"
-                            id="password"
-                            autoComplete="current-password"
-                            {...register("password", {required: true})}
-                        />
-                        {errors && errors.password && <span>Please enter a password</span>}
+                        {errors && errors.registrationEndpoint && <span>Please enter a valid registration endpoint</span>}
+                         
                         <Button
                             type="submit"
                             fullWidth
@@ -158,30 +123,7 @@ export default function SignIn({authService}: SignInProps) {
             
             
 
-            <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                color="primary"
-                startIcon ={<WindowTwoTone />}
-
-                className={classes.submit}
-                onClick={handleMicrosoftGigyaLogin}
-            >
-                Sign In With Microsoft
-            </Button>
-            
-            {/*<Button*/}
-            {/*    type="submit"*/}
-            {/*    fullWidth*/}
-            {/*    variant="contained"*/}
-            {/*    color="primary"*/}
-            {/*    className={classes.submit}*/}
-            {/*    onClick={handleFacebookGigyaLogin}*/}
-            {/*>*/}
-            {/*    Sign In With Facebook*/}
-            {/*</Button>*/}
-            
+             
 
             <Button
                 type="submit"
@@ -189,21 +131,7 @@ export default function SignIn({authService}: SignInProps) {
                 variant="contained"
                 color="primary"
                 className={classes.submit}
-                onClick={handleGoogleLogin}                
-                startIcon ={<Google /> }
-
-
-            >
-                Sign In With Google
-            </Button>
-
-            <Button
-                type="submit"
-                fullWidth
-                variant="contained"
-                color="primary"
-                className={classes.submit}
-                onClick={handleOConnectLogin}
+                onClick={handle_oidc}
             >
                 Sign In With OIDC Connect (logindynidp)
             </Button>
@@ -214,19 +142,11 @@ export default function SignIn({authService}: SignInProps) {
                 variant="contained"
                 color="primary"
                 className={classes.submit}
-                onClick={handleOPublicConnectGigyaLogin}
+                onClick={handle_oidc_dr}
             >
                 Sign In OIDC Provider (logindynidp/eu)
             </Button>
-
-       
-            <Grid container justifyContent="flex-start">
-                <Grid item>
-                    <Link  onClick={handleRegister} variant="body2">
-                        {"Don't have an account? Sign Up"}
-                    </Link>
-                </Grid>
-            </Grid>
+ 
 
             {message &&  <span><ErrorOutlined /> {message}</span>}
 
