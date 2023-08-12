@@ -1,12 +1,14 @@
 import React, {useEffect} from "react";
-import {AnyEventObject, Interpreter, ActionTypes} from "xstate";
-import { Paper, Typography } from "@mui/material";
+import {ActionTypes, ActorRef, AnyEventObject, AnyState} from "xstate";
+import {Box, FormControlLabel, Paper, Slide, Switch, Typography} from "@mui/material";
 import makeStyles from '@mui/styles/makeStyles';
-import NotificationList from "../components/NotificationList";
+import NotificationList from "../logger/NotificationList";
 import {AuthService} from "../machines/authMachine";
 import {NotificationResponseItem, NotificationsEvents, NotificationsService} from "../machines/notificationsMachine";
 import {omit} from "lodash/fp";
-import {useActor} from "@xstate/react";
+import {useActor, useSelector} from "@xstate/react";
+import {ErrorBoundary} from "../logger/NotificationListItem";
+import {isUpdateType, useAppLogger} from "../logger/useApplicationLogger";
 
 const useStyles = makeStyles((theme) => ({
     paper: {
@@ -24,101 +26,146 @@ export interface Props {
 }
 
 function generateUniqueID() {
-        // Math.random should be unique because of its seeding algorithm.
-        // Convert it to base 36 (numbers + letters), and grab the first 9 characters
-        // after the decimal.
-        return '_' + Math.random().toString(36).substr(2, 9);
-    }
+    // Math.random should be unique because of its seeding algorithm.
+    // Convert it to base 36 (numbers + letters), and grab the first 9 characters
+    // after the decimal.
+    return '_' + Math.random().toString(36).substr(2, 9);
+}
 
 
 interface NotificationUpdatePayload {
 }
 
-const NotificationsContainer: React.FC<Props> = ({authService, notificationsService}) => {
-    const classes = useStyles();
-    // const [authState] = useActor(authService);
-    const [notificationsState, sendNotifications] = useActor(notificationsService);
+const contextSelector = (state: AnyState) => state?.context;
+const loginServiceSelector = (state: AnyState) => state?.context?.;
+const compareApp = (prevApp: ActorRef<AppMachine>, nextNext: ActorRef<AppMachine>) => prevApp?.id === nextNext?.id;
 
-    function getPayload(event: AnyEventObject) {
-       return {
-        ...omit( ['type','data'], event),
+const appsSelector = (state: AnyState) => state?.context?.apps;
+
+function getPayload(event: AnyEventObject) {
+    return {
+        ...omit(['type', 'data', 'service', 'loader'], event),
         ...(event.data || {})
 
-        };
+    };
+}
+
+function doneDetails(event: AnyEventObject): Partial<NotificationResponseItem> {
+    if (event.type.indexOf('DONE.') > 0) {
+        const title = `done: ${event.type.replace('DONE.INVOKE.', '').replace(':INVOCATION[0]', '')}`
+        return {
+            severity: 'success',
+            title
+
+        }
     }
-  
+    return {};
+}
 
 
-    function doneDetails(event: AnyEventObject):Partial<NotificationResponseItem >{
-        if(event.type.indexOf('DONE.') > 0){
-            const title=  `done: ${event.type.replace('DONE.INVOKE.' , '').replace(':INVOCATION[0]' , '')}`
+function errorDetails(event: AnyEventObject): Partial<NotificationResponseItem> {
+    if (event.type.indexOf('ERROR.') > 0) {
+        const title = `${event.type.toLowerCase()
+            .replace(ActionTypes.ErrorCommunication, 'communication error: ')
+            .replace(ActionTypes.ErrorExecution, 'execution error: ')
+            .replace(ActionTypes.ErrorCustom, 'error: ')
+
+            .replace(':invocation[0]', '')} `;
+        return {
+            severity: 'error',
+            title
+
+        }
+    }
+    return {};
+}
+
+
+const emptySubscriber = {
+    subscribe: ((observer: (state: AnyState) => {}) => {
             return {
-                severity: 'success',
-                title
+                unsubscribe: () => {
+                }
+            };
+        }
+    )
 
-            }
-        }
-        return {};
+}
+
+const NotificationsContainer: React.FC<Props> = ({authService, notificationsService}) => {
+    const classes = useStyles();
+    const [notificationsState, sendNotifications] = useActor(notificationsService);
+    const app = useSelector(authService, loginServiceSelector, compareApp) ;
+    // const apps = useSelector(app, appsSelector) || [];
+    useAppLogger(app as unknown as , sendNotifications);
+
+
+    function getType(state: AnyState) {
+        return !state.event?.type ?
+            "" :
+            state.event.type.toLowerCase() === "xstate.update" ?
+                "update" :
+                state.event.type.toLowerCase()
     }
-    function errorDetails(event: AnyEventObject):Partial<NotificationResponseItem >{
-        if(event.type.indexOf('ERROR.') > 0){
-            const title= `${event.type.toLowerCase()
-                .replace(ActionTypes.ErrorCommunication , 'communication error: ')
-                .replace(ActionTypes.ErrorExecution, 'execution error: ')
-                .replace(ActionTypes.ErrorCustom,  'error: ')
-                
-                .replace(':invocation[0]' , '')} `;
-            return { 
-                severity: 'error',
-                title
-                
-            }
-        }
-        return {};
-    }
+
     useEffect(() => {
-        authService.onEvent(event => {
-            if(!event) return;
-            
+        authService.subscribe(state => {
+            if (!state || isUpdateType(state)) return;
             sendNotifications({
                 type: "ADD", notification: {
                     id: generateUniqueID(),
-                    title:  event.type.toLowerCase(),
-                    severity: 'info',
-                    payload: getPayload(event),
-                    ...doneDetails(event),
-                    ...errorDetails(event)
+                    title: `${state.value}`,
+                    severity: 'success',
+                    summary: `event: ${getType(state)}`,
+                    group: 'auth',
+                    icon: 'login',
+                    payload: getPayload(state.event),
+                    ...doneDetails(state.event),
+                    ...errorDetails(state.event)
                 }
             })
         })
+
     }, [authService])
 
-    // useEffect(() => {
-    //   sendNotifications({
-    //     type: "ADD", notification: {
-    //       id: "Auth State",
-    //       title: authState.value as string,
-    //       severity:  "info",
-    //       payload: authState
-    //     }
-    //   })
-    // }, [authState]);
 
+    const handleChange = () => {
+        if (notificationsState.matches("visible")) {
+            sendNotifications("HIDE");
+        } else {
+            sendNotifications("SHOW");
+        }
+    };
 
     const updateNotification = (payload: NotificationUpdatePayload) => {
     };
+    const checked = notificationsState.matches("visible");
 
+    // @ts-ignore
     return (
-        <Paper className={classes.paper} >
-            <Typography component="h2" variant="h6" color="primary" gutterBottom>
-                Notifications
-            </Typography>
-            <NotificationList
-                notifications={notificationsState?.context?.notifications!}
-                updateNotification={updateNotification}
+
+        <Box>
+            <ErrorBoundary data={app}>
+                {/*{app && <AppsListener app={app} notifications={notificationsService}/>}*/}
+            </ErrorBoundary>
+            <FormControlLabel
+                control={<Switch checked={notificationsState.matches("visible")} onChange={handleChange}/>}
+                label="Show logger"
             />
-        </Paper>
+            <Slide direction="up" in={checked}>
+                <Paper className={classes.paper}>
+                    <Typography component="h2" variant="h6" color="primary" gutterBottom>
+                        Logger
+                    </Typography>
+
+                    <NotificationList
+                        notifications={notificationsState?.context?.notifications!}
+                        updateNotification={updateNotification}/>
+                </Paper>
+            </Slide>
+        </Box>
     );
 };
 
 export default NotificationsContainer;
+

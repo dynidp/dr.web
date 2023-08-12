@@ -63,10 +63,8 @@ export default function SignIn({authService}: SignInProps) {
     // the react-hook-form library
 
     const handle_dynamic_oidc = async (data: any) => {
-        const params = {
-            registrationEndpoint: data.registrationEndpoint,
-        };
-        loginService.send({type: "OIDC.DR", ...params})
+      
+        loginService.send({type: "OIDC.DR", ...data})
 
     };
 
@@ -74,7 +72,7 @@ export default function SignIn({authService}: SignInProps) {
         loginService.send({type: 'SOCIAL',provider: "https://fidm.eu1.gigya.com/oidc/op/v1.0/4_IIUXxExoyzTQFvliBbnXsA" });
     };
     const handle_oidc_dr = () => {
-        loginService.send({type: 'OIDC.DR',registrationEndpoint: "https://fidm.eu1.gigya.com/oidc/op/v1.0/4_IIUXxExoyzTQFvliBbnXsA/register" });
+        loginService.send({type: 'OIDC.DR',issuer: "https://fidm.eu1.gigya.com/oidc/op/v1.0/4_IIUXxExoyzTQFvliBbnXsA" });
     };
     return (
         <Container component="main" maxWidth="xs">
@@ -96,14 +94,29 @@ export default function SignIn({authService}: SignInProps) {
                             margin="normal"
                             required
                             fullWidth
+                            id="issuer"
+                            label="Issuer"
+                            autoComplete="issuer"
+                            autoFocus
+                            {...register("issuer", {required: true})}
+                        />
+                        {errors && errors.issuer && <span>Please enter a valid issuer</span>}
+
+                        {/*
+                        <TextField
+                            variant="outlined"
+                            margin="normal"
+                            required
+                            fullWidth
                             id="registrationEndpoint"
                             label="Registration Endpoint"
                             autoComplete="registrationEndpoint"
                             autoFocus
-                            {...register("registrationEndpoint", {required: true})}
+                            {...register("issuer", {required: true})}
                         />
                         {errors && errors.registrationEndpoint && <span>Please enter a valid registration endpoint</span>}
-                         
+                        */}
+                        
                         <Button
                             type="submit"
                             fullWidth
@@ -144,7 +157,7 @@ export default function SignIn({authService}: SignInProps) {
                 className={classes.submit}
                 onClick={handle_oidc_dr}
             >
-                Sign In OIDC Provider (logindynidp/eu)
+                Sign In OIDC Provider (dcr  )
             </Button>
  
 
